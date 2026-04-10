@@ -12,7 +12,7 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 
 - **멀티테넌트 데이터 격리** — 회사별로 매장 데이터가 분리되어 타사 데이터 접근 불가
 - **Google Maps Platform 풀스택 활용** — Maps JS / Places (New) / Geocoding 직접 연동
-- **임베드 위젯** — 외부 도메인에서 한 줄로 사용 가능한 위치 위젯 (실제 SPH 솔루션 납품 모델과 동일한 구조)
+- **임베드 위젯** — 외부 도메인에서 한 줄로 사용 가능한 위치 위젯
 
 ---
 
@@ -94,7 +94,6 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 - 위젯 JS 는 **Google Maps 스크립트를 동적 로드** 후 매장 핀 + InfoWindow 렌더링, 로드 실패 시 텍스트 fallback
 - **전역 callback 큐** (`__bizmapMapsCallbacks`) 로 한 페이지에 위젯 여러 개 임베드해도 Google Maps 스크립트는 한 번만 로드
 - 외부 도메인 CORS 별도 정책 (`/widget/**` 와일드카드 origin)
-- **실제 SPH 위치 솔루션 납품 방식과 동일한 구조** (외부 사이트에 위치 위젯 제공)
 
 ### 3-6. JWT 인증
 > _스크린샷: 로그인 화면_
@@ -218,7 +217,7 @@ sequenceDiagram
 
 ## 5. Google Maps Platform API 활용
 
-SPH 의 핵심 사업 영역인 Google Maps Platform 을 직접 연동한 경험:
+Google Maps Platform 을 직접 연동
 
 | API | 활용 내용 |
 |-----|-----------|
