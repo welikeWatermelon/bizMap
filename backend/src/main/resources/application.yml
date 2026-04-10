@@ -1,0 +1,26 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/bizmap}
+    username: ${DB_USERNAME:bizmap}
+    password: ${DB_PASSWORD:bizmap1234}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    defer-datasource-initialization: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  sql:
+    init:
+      mode: always
+
+jwt:
+  secret: ${JWT_SECRET:bizmap-default-secret-key-for-jwt-must-be-long-enough}
+  access-expiration: 1800000
+  refresh-expiration: 604800000
+
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY:}
