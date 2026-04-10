@@ -1,6 +1,12 @@
-# BizMap
+<div align="center">
 
-> 기업이 자사 매장/시설을 지도 위에서 등록·조회·관리하고, 외부 웹사이트에 매장 찾기 위젯을 제공하는 **B2B 위치 관리 플랫폼**
+# 🗺️ BizMap
+
+### 매장/시설을 지도 위에서 관리하고, 한 줄 스크립트로 외부 사이트에 임베드하는 **B2B 위치 관리 플랫폼**
+
+<img src="./img/dashboard-hero.png" alt="BizMap 관리자 대시보드" width="850" />
+
+</div>
 
 ---
 
@@ -49,14 +55,18 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 > 스크린샷 자리: 각 기능별 캡처 이미지를 추후 `docs/screenshots/` 에 추가
 
 ### 3-1. 매장 관리 (B2B 멀티테넌트)
-> _스크린샷: 매장 목록 + 등록/수정 폼_
 
 - `company_id` 외래키 기반 데이터 격리. JWT payload 의 `companyId` 를 `SecurityContextHolder` → `SecurityUtils.getCurrentCompanyId()` 로 추출
 - 모든 Store Service 메서드에서 **company_id 일치 검증** 필수, 불일치 시 `FORBIDDEN (403)` 반환
 - CRUD + 카테고리 필터 + 키워드 검색 + 페이징
 
+<div align="center">
+  <img src="./img/store-management.png" alt="매장 목록" width="48%" />
+  <img src="./img/store-detail.png" alt="매장 상세" width="48%" />
+  <p><em>좌: 매장 목록 + 카테고리 필터 · 우: 매장 상세 정보</em></p>
+</div>
+
 ### 3-2. Google Places Autocomplete
-> _스크린샷: 주소 입력 시 드롭다운 자동완성_
 
 - 매장 등록 시 주소 텍스트 입력 → **자동완성 드롭다운**으로 후보 표시 → 클릭 시 좌표 자동 세팅
 - **AutocompleteSuggestion API (2025년 신규 API)** 적용 — 기존 `AutocompleteService` deprecated 대응
@@ -65,7 +75,6 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 - 한국 주소만 노출 (`region: 'kr'`, `language: 'ko'`)
 
 ### 3-3. PostGIS 공간 쿼리
-> _스크린샷: /find 페이지의 반경 검색 결과_
 
 - `ST_DWithin(geography, geography, radius_meters)` 으로 반경 내 매장 필터
 - `ST_Distance(geography, geography)` 로 거리 계산 후 가까운 순 정렬
@@ -73,16 +82,29 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 - GiST 공간 인덱스 활용 가능 → 매장 수 증가 시 후보군 사전 필터링으로 성능 확보
 - Native query + Hibernate Spatial 의존성
 
+<div align="center">
+  <img src="./img/radius-search.png" alt="반경 기준 매장 검색" width="850" />
+  <p><em>지정한 반경 내 매장만 거리순으로 정렬되어 지도에 표시</em></p>
+</div>
+
 ### 3-4. 재고 기반 매장 찾기
-> _스크린샷: 상품/사이즈 선택 → 재고 있는 매장 지도_
 
 - 상품 → 사이즈 선택 → **재고 1개 이상인 매장만 필터**
 - 브라우저 `geolocation` 으로 사용자 현재 위치 획득 → **거리순 정렬**
 - 매장 클릭 → 경로 안내 패널 → "자동차/도보 길찾기" 버튼 → **Google Maps 딥링크**로 새 탭 오픈
 - 반경 입력 500ms 디바운스 적용
 
+<div align="center">
+  <img src="./img/inventory-filter.png" alt="상품/사이즈 필터" width="850" />
+  <p><em>① 상품과 사이즈 선택 → 재고 보유 매장만 추려냄</em></p>
+  <img src="./img/inventory-result-1.png" alt="재고 검색 결과" width="48%" />
+  <img src="./img/inventory-result-2.png" alt="매장 상세 + 지도" width="48%" />
+  <p><em>② 거리순 정렬 결과 + 매장 핀 표시</em></p>
+  <img src="./img/inventory-route.png" alt="길찾기 - 차량 경로 선택" width="850" />
+  <p><em>③ 매장 선택 → Google Maps 딥링크로 자동차/도보 길찾기 연결</em></p>
+</div>
+
 ### 3-5. 매장 찾기 위젯 (핵심 차별점)
-> _스크린샷: 위젯 관리 페이지 + 외부 사이트 임베드 예시_
 
 - **API 키 발급 시스템** — 회사별로 위젯 키 생성/조회/삭제 (`/api/widget-keys`), `allowedOrigin` 으로 도메인 제한 가능
 - 고객사 웹사이트는 **단 두 줄**로 임베드 가능:
@@ -95,8 +117,14 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 - **전역 callback 큐** (`__bizmapMapsCallbacks`) 로 한 페이지에 위젯 여러 개 임베드해도 Google Maps 스크립트는 한 번만 로드
 - 외부 도메인 CORS 별도 정책 (`/widget/**` 와일드카드 origin)
 
+<div align="center">
+  <img src="./img/widget-key-management.png" alt="위젯 키 관리 페이지" width="850" />
+  <p><em>위젯 관리 페이지 — 회사별 API 키 발급/삭제 + 허용 도메인 설정</em></p>
+  <img src="./img/widget-embed-example.png" alt="외부 사이트 임베드 예시" width="850" />
+  <p><em>발급받은 키 한 줄로 외부 사이트에 매장 찾기 위젯 임베드</em></p>
+</div>
+
 ### 3-6. JWT 인증
-> _스크린샷: 로그인 화면_
 
 - **Access Token 30분 / Refresh Token 7일**
 - `JwtAuthFilter (OncePerRequestFilter)` 가 모든 요청에서 `Authorization: Bearer` 추출 → 인증 객체 설정
