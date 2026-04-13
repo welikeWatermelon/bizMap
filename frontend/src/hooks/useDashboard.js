@@ -5,6 +5,7 @@ export default function useDashboard() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [usageData, setUsageData] = useState([]);
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -19,5 +20,14 @@ export default function useDashboard() {
     }
   }, []);
 
-  return { summary, loading, error, fetchSummary };
+  const fetchUsage = useCallback(async () => {
+    try {
+      const { data } = await dashboardApi.getUsageSummary(7);
+      setUsageData(data.data);
+    } catch (err) {
+      // 사용량 조회 실패는 무시
+    }
+  }, []);
+
+  return { summary, loading, error, fetchSummary, usageData, fetchUsage };
 }

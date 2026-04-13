@@ -101,10 +101,36 @@
 - [x] StoreService.java 수정: createStore/updateStore 저장 전 주소 검증, normalizedAddress 교체
 - [x] StoreFormPage.jsx 수정: 주소 검증 상태 뱃지 (selected/invalid), INVALID_ADDRESS 에러 감지
 
+## Phase 11 Redis 캐싱 + API 사용량 추적
+
+### 인프라
+- docker-compose.yml: Redis 7-alpine 추가
+- build.gradle: spring-boot-starter-data-redis 추가
+- application.yml: spring.data.redis 설정 추가
+
+### 백엔드 신규
+- RedisConfig.java: RedisTemplate<String, String> Bean (StringRedisSerializer)
+- WidgetCacheService.java: WidgetKey/매장목록/지도핀 캐싱 + 사용량 카운팅 (모든 메서드 try-catch, Redis 장애 시 서비스 중단 없음)
+- WidgetUsage.java: 엔티티 (widget_key_id, usage_date, call_count, unique 제약)
+- WidgetUsageRepository.java: 날짜 범위 조회, 단건 조회
+- WidgetUsageService.java: 일별 사용량 합산 (DB + Redis 당일 카운터)
+- DailyUsageResponse.java: record(date, callCount)
+- UsageFlushScheduler.java: 매일 자정 Redis → DB flush
+
+### 백엔드 수정
+- BizmapApplication.java: @EnableScheduling 추가
+- WidgetKeyService.java: 캐시 적용 + incrementUsage + 캐시 무효화
+- StoreService.java: CUD 후 캐시 무효화, getMapPins 캐시 적용
+- DashboardController.java: GET /api/dashboard/usage?days=7 추가
+
+### 프론트엔드
+- dashboard.js: getUsageSummary() 추가
+- useDashboard.js: usageData, fetchUsage 추가
+- DashboardPage.jsx: 위젯 API 호출량 Line 차트 추가
+
 ## 다음 작업
-- [ ] Redis 캐싱 (위젯 API + 지도 핀 API 응답 캐싱)
-- [ ] API 사용량 추적 (위젯 키별/일별 호출 건수, Redis counter → DB flush)
-- [ ] 관리자 대시보드 사용량 차트
+- [ ] Compute Route Matrix (직선거리 → 실제 이동시간 기반 매장 정렬)
+- [ ] README.md SPH 핏 추가 내용 반영
 
 ## 특이사항
 - 로컬 PostgreSQL과 Docker 포트 충돌로 Docker 포트를 5433으로 변경 (docker-compose.yml, application.yml)

@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 import Navbar from '../components/Navbar';
 import useDashboard from '../hooks/useDashboard';
-import { Chart, ArcElement, Tooltip, Legend } from 'chart.js';
-import { Doughnut } from 'react-chartjs-2';
+import { Chart, ArcElement, Tooltip, Legend, LineElement, PointElement, LinearScale, CategoryScale } from 'chart.js';
+import { Doughnut, Line } from 'react-chartjs-2';
 
-Chart.register(ArcElement, Tooltip, Legend);
+Chart.register(ArcElement, Tooltip, Legend, LineElement, PointElement, LinearScale, CategoryScale);
 
 export default function DashboardPage() {
-  const { summary, loading, error, fetchSummary } = useDashboard();
+  const { summary, loading, error, fetchSummary, usageData, fetchUsage } = useDashboard();
 
-  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+  useEffect(() => { fetchSummary(); fetchUsage(); }, [fetchSummary, fetchUsage]);
 
   if (loading) return <div><Navbar /><p style={{ padding: '24px' }}>로딩 중...</p></div>;
   if (error) return <div><Navbar /><p style={{ padding: '24px', color: '#d32f2f' }}>{error}</p></div>;
@@ -77,6 +77,33 @@ export default function DashboardPage() {
               </table>
             ) : (
               <p style={{ color: '#999' }}>등록된 매장이 없습니다.</p>
+            )}
+          </div>
+        </div>
+
+        <div style={{ marginTop: '24px' }}>
+          <div style={styles.chartCard}>
+            <h3 style={{ margin: '0 0 16px' }}>위젯 API 호출량 (최근 7일)</h3>
+            {usageData.length > 0 ? (
+              <Line
+                data={{
+                  labels: usageData.map((d) => d.date),
+                  datasets: [{
+                    label: '일별 호출 수',
+                    data: usageData.map((d) => d.callCount),
+                    borderColor: '#1976d2',
+                    backgroundColor: 'rgba(25,118,210,0.1)',
+                    tension: 0.3,
+                    fill: true,
+                  }],
+                }}
+                options={{
+                  plugins: { legend: { display: false } },
+                  scales: { y: { beginAtZero: true } },
+                }}
+              />
+            ) : (
+              <p style={{ color: '#999' }}>위젯 호출 데이터가 없습니다.</p>
             )}
           </div>
         </div>
