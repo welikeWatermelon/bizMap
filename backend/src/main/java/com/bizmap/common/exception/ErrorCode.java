@@ -14,7 +14,8 @@ public enum ErrorCode {
     INVALID_TOKEN(401, "INVALID_TOKEN", "유효하지 않은 토큰입니다."),
     INVALID_INPUT(400, "INVALID_INPUT", "잘못된 입력입니다."),
     PRODUCT_NOT_FOUND(404, "PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다."),
-    WIDGET_KEY_NOT_FOUND(404, "WIDGET_KEY_NOT_FOUND", "위젯 키를 찾을 수 없습니다.");
+    WIDGET_KEY_NOT_FOUND(404, "WIDGET_KEY_NOT_FOUND", "위젯 키를 찾을 수 없습니다."),
+    INVALID_ADDRESS(400, "INVALID_ADDRESS", "유효하지 않은 주소입니다.");
 
     private final int status;
     private final String code;

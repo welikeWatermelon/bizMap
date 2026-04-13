@@ -94,8 +94,17 @@
 - [x] 트러블슈팅 하이라이트 3건 요약 (Places deprecated / Routes 정책 / PostGIS CAST)
 - [x] 기술 스택 뱃지 형식 적용
 
+## Phase 10 Address Validation API (SPH 핏 추가)
+- [x] AddressValidationService.java (신규): Google Address Validation API 연동, regionCode: "KR", API 실패 시 isValid=true fallback
+- [x] CommonConfig.java (신규): RestTemplate Bean 등록
+- [x] ErrorCode.java 수정: INVALID_ADDRESS(400) 추가
+- [x] StoreService.java 수정: createStore/updateStore 저장 전 주소 검증, normalizedAddress 교체
+- [x] StoreFormPage.jsx 수정: 주소 검증 상태 뱃지 (selected/invalid), INVALID_ADDRESS 에러 감지
+
 ## 다음 작업
-없음 - 모든 항목 완료
+- [ ] Redis 캐싱 (위젯 API + 지도 핀 API 응답 캐싱)
+- [ ] API 사용량 추적 (위젯 키별/일별 호출 건수, Redis counter → DB flush)
+- [ ] 관리자 대시보드 사용량 차트
 
 ## 특이사항
 - 로컬 PostgreSQL과 Docker 포트 충돌로 Docker 포트를 5433으로 변경 (docker-compose.yml, application.yml)

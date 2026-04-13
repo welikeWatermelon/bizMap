@@ -7,6 +7,7 @@ import com.bizmap.store.domain.Store;
 import com.bizmap.store.domain.StoreCategory;
 import com.bizmap.store.dto.*;
 import com.bizmap.store.repository.StoreRepository;
+import com.bizmap.store.service.AddressValidationService.AddressValidationResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +24,7 @@ import java.util.List;
 public class StoreService {
 
     private final StoreRepository storeRepository;
+    private final AddressValidationService addressValidationService;
 
     @Transactional(readOnly = true)
     public Page<StoreResponse> getStores(String keyword, StoreCategory category, int page, int size) {
@@ -46,11 +48,20 @@ public class StoreService {
     public StoreResponse createStore(CreateStoreRequest request) {
         Long companyId = SecurityUtils.getCurrentCompanyId();
 
+        AddressValidationResult validationResult = addressValidationService.validate(request.getAddress());
+        if (!validationResult.isValid()) {
+            throw new BizMapException(ErrorCode.INVALID_ADDRESS);
+        }
+
+        String address = validationResult.normalizedAddress() != null
+                ? validationResult.normalizedAddress()
+                : request.getAddress();
+
         Store store = Store.builder()
                 .companyId(companyId)
                 .name(request.getName())
                 .category(request.getCategory())
-                .address(request.getAddress())
+                .address(address)
                 .latitude(request.getLatitude())
                 .longitude(request.getLongitude())
                 .phone(request.getPhone())
@@ -74,7 +85,18 @@ public class StoreService {
         Store store = findActiveStore(id);
         validateOwnership(store, companyId);
 
-        store.update(request.getName(), request.getCategory(), request.getAddress(),
+        String address = request.getAddress();
+        if (address != null) {
+            AddressValidationResult validationResult = addressValidationService.validate(address);
+            if (!validationResult.isValid()) {
+                throw new BizMapException(ErrorCode.INVALID_ADDRESS);
+            }
+            if (validationResult.normalizedAddress() != null) {
+                address = validationResult.normalizedAddress();
+            }
+        }
+
+        store.update(request.getName(), request.getCategory(), address,
                 request.getLatitude(), request.getLongitude(), request.getPhone(),
                 request.getOpenTime(), request.getCloseTime());
 

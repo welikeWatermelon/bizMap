@@ -11,6 +11,7 @@ export default function StoreFormPage() {
   const { initMap, addMarkers, loaded } = useMap();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [addressValidated, setAddressValidated] = useState(null);
   const [form, setForm] = useState({
     name: '', category: 'RETAIL', address: '',
     latitude: '', longitude: '', phone: '', openTime: '', closeTime: '',
@@ -28,6 +29,7 @@ export default function StoreFormPage() {
 
   const handleAddressSelect = ({ address, lat, lng }) => {
     setForm((prev) => ({ ...prev, address, latitude: lat, longitude: lng }));
+    setAddressValidated('selected');
     if (loaded) {
       addMarkers([{ id: 0, name: form.name || '새 매장', latitude: lat, longitude: lng }]);
     }
@@ -48,7 +50,13 @@ export default function StoreFormPage() {
       await storesApi.createStore(payload);
       navigate('/stores');
     } catch (err) {
-      setError(err.response?.data?.message || '매장 등록에 실패했습니다.');
+      const code = err.response?.data?.code;
+      if (code === 'INVALID_ADDRESS') {
+        setError('유효하지 않은 주소입니다. 다른 주소를 입력해주세요.');
+        setAddressValidated('invalid');
+      } else {
+        setError(err.response?.data?.message || '매장 등록에 실패했습니다.');
+      }
     } finally {
       setLoading(false);
     }
@@ -81,6 +89,16 @@ export default function StoreFormPage() {
                 placeholder="주소를 검색하세요"
                 initialValue={form.address}
               />
+              {addressValidated === 'selected' && (
+                <span style={{ ...styles.badge, backgroundColor: '#e3f2fd', color: '#1976d2' }}>
+                  주소 입력됨
+                </span>
+              )}
+              {addressValidated === 'invalid' && (
+                <span style={{ ...styles.badge, backgroundColor: '#ffebee', color: '#d32f2f' }}>
+                  유효하지 않은 주소
+                </span>
+              )}
             </div>
             <div style={styles.field}>
               <label>전화번호</label>
@@ -118,5 +136,9 @@ const styles = {
   submitBtn: {
     width: '100%', padding: '12px', backgroundColor: '#1976d2', color: '#fff',
     border: 'none', borderRadius: '4px', fontSize: '16px', cursor: 'pointer', marginTop: '8px',
+  },
+  badge: {
+    display: 'inline-block', padding: '2px 8px', borderRadius: '4px',
+    fontSize: '12px', marginTop: '4px',
   },
 };
