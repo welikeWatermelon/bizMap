@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -24,6 +25,7 @@ public class WidgetKeyService {
 
     private final WidgetKeyRepository widgetKeyRepository;
     private final StoreRepository storeRepository;
+    private final WidgetCacheService widgetCacheService;
 
     public WidgetKeyResponse createWidgetKey(CreateWidgetKeyRequest request) {
         Long companyId = SecurityUtils.getCurrentCompanyId();
@@ -54,19 +56,31 @@ public class WidgetKeyService {
             throw new BizMapException(ErrorCode.FORBIDDEN);
         }
         widgetKeyRepository.delete(widgetKey);
+        widgetCacheService.evictWidgetKey(widgetKey.getApiKey());
+        widgetCacheService.evictStores(companyId);
     }
 
     @Transactional(readOnly = true)
     public List<WidgetStoreResponse> getStoresByApiKey(String apiKey) {
         WidgetKey widgetKey = findByApiKey(apiKey);
-        return storeRepository.findAllActiveByCompanyId(widgetKey.getCompanyId()).stream()
+        widgetCacheService.incrementUsage(apiKey);
+
+        Optional<List<WidgetStoreResponse>> cached = widgetCacheService.getCachedStores(widgetKey.getCompanyId());
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        List<WidgetStoreResponse> stores = storeRepository.findAllActiveByCompanyId(widgetKey.getCompanyId()).stream()
                 .map(WidgetStoreResponse::from)
                 .toList();
+        widgetCacheService.cacheStores(widgetKey.getCompanyId(), stores);
+        return stores;
     }
 
     @Transactional(readOnly = true)
     public List<WidgetStoreResponse> getNearbyStoresByApiKey(String apiKey, double lat, double lng, double radius) {
         WidgetKey widgetKey = findByApiKey(apiKey);
+        widgetCacheService.incrementUsage(apiKey);
         Long companyId = widgetKey.getCompanyId();
 
         List<Store> all = storeRepository.findAllActiveByCompanyId(companyId);
@@ -78,8 +92,15 @@ public class WidgetKeyService {
 
     @Transactional(readOnly = true)
     public WidgetKey findByApiKey(String apiKey) {
-        return widgetKeyRepository.findByApiKey(apiKey)
+        Optional<WidgetKey> cached = widgetCacheService.getCachedWidgetKey(apiKey);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        WidgetKey widgetKey = widgetKeyRepository.findByApiKey(apiKey)
                 .orElseThrow(() -> new BizMapException(ErrorCode.WIDGET_KEY_NOT_FOUND));
+        widgetCacheService.cacheWidgetKey(apiKey, widgetKey);
+        return widgetKey;
     }
 
     private String generateApiKey() {

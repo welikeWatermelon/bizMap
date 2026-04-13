@@ -8,6 +8,7 @@ import com.bizmap.store.domain.StoreCategory;
 import com.bizmap.store.dto.*;
 import com.bizmap.store.repository.StoreRepository;
 import com.bizmap.store.service.AddressValidationService.AddressValidationResult;
+import com.bizmap.widget.service.WidgetCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -25,6 +26,7 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final AddressValidationService addressValidationService;
+    private final WidgetCacheService widgetCacheService;
 
     @Transactional(readOnly = true)
     public Page<StoreResponse> getStores(String keyword, StoreCategory category, int page, int size) {
@@ -69,7 +71,10 @@ public class StoreService {
                 .closeTime(request.getCloseTime())
                 .build();
 
-        return StoreResponse.from(storeRepository.save(store));
+        StoreResponse response = StoreResponse.from(storeRepository.save(store));
+        widgetCacheService.evictStores(companyId);
+        widgetCacheService.evictMapPins(companyId);
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -100,6 +105,8 @@ public class StoreService {
                 request.getLatitude(), request.getLongitude(), request.getPhone(),
                 request.getOpenTime(), request.getCloseTime());
 
+        widgetCacheService.evictStores(companyId);
+        widgetCacheService.evictMapPins(companyId);
         return StoreResponse.from(store);
     }
 
@@ -108,19 +115,26 @@ public class StoreService {
         Store store = findActiveStore(id);
         validateOwnership(store, companyId);
         store.deactivate();
+        widgetCacheService.evictStores(companyId);
+        widgetCacheService.evictMapPins(companyId);
     }
 
     @Transactional(readOnly = true)
     public List<MapPinResponse> getMapPins() {
         Long companyId = SecurityUtils.getCurrentCompanyId();
-        return storeRepository.findMapPinsByCompanyId(companyId).stream()
-                .map(row -> MapPinResponse.builder()
-                        .id((Long) row[0])
-                        .name((String) row[1])
-                        .latitude((Double) row[2])
-                        .longitude((Double) row[3])
-                        .build())
-                .toList();
+
+        return widgetCacheService.getCachedMapPins(companyId).orElseGet(() -> {
+            List<MapPinResponse> pins = storeRepository.findMapPinsByCompanyId(companyId).stream()
+                    .map(row -> MapPinResponse.builder()
+                            .id((Long) row[0])
+                            .name((String) row[1])
+                            .latitude((Double) row[2])
+                            .longitude((Double) row[3])
+                            .build())
+                    .toList();
+            widgetCacheService.cacheMapPins(companyId, pins);
+            return pins;
+        });
     }
 
     @Transactional(readOnly = true)
