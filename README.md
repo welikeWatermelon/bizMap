@@ -31,6 +31,7 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 ![JPA](https://img.shields.io/badge/Spring_Data_JPA-Hibernate-59666C?logo=hibernate&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostGIS-3.4-336791)
+![Redis](https://img.shields.io/badge/Redis-7-DC382D?logo=redis&logoColor=white)
 ![Gradle](https://img.shields.io/badge/Gradle-8-02303A?logo=gradle&logoColor=white)
 
 ### Frontend
@@ -44,6 +45,7 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 ![Maps JS](https://img.shields.io/badge/Maps_JavaScript_API-4285F4?logo=googlemaps&logoColor=white)
 ![Places New](https://img.shields.io/badge/Places_API_(New)-4285F4?logo=googlemaps&logoColor=white)
 ![Geocoding](https://img.shields.io/badge/Geocoding_API-4285F4?logo=googlemaps&logoColor=white)
+![Address Validation](https://img.shields.io/badge/Address_Validation_API-4285F4?logo=googlemaps&logoColor=white)
 
 ### Infra
 ![Docker Compose](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white)
@@ -132,6 +134,23 @@ BizMap은 기업이 자사 매장/시설을 지도 위에서 등록·조회·관
 - Refresh Token 은 `refresh_tokens` 테이블에 저장 (rotation 가능 구조)
 - 비밀번호는 BCrypt (strength 10) 해시 저장
 
+### 3-7. Address Validation API (주소 검증)
+
+- 매장 등록/수정 시 Google Address Validation API로 주소 유효성 검증
+- 실제 존재하지 않는 주소나 배송 불가 형식은 저장 전 차단
+- API 응답의 normalizedAddress로 주소 자동 정규화 후 저장
+- API 호출 실패 시 fallback 처리로 서비스 중단 없음
+- 프론트엔드 주소 필드에 검증 상태 뱃지 표시 (선택됨 / 유효하지 않음)
+
+### 3-8. Redis 캐싱 + API 사용량 추적
+
+- 위젯 API 캐싱: WidgetKey (TTL 10분), 매장 목록 (TTL 5분), 지도 핀 (TTL 5분)
+- 매장 CUD 발생 시 관련 캐시 자동 무효화
+- Redis INCR로 위젯 키별 일별 호출 건수 집계
+- 매일 자정 스케줄러가 Redis 카운터를 DB(widget_usage 테이블)로 flush
+- 대시보드에 최근 7일 위젯 API 호출량 Line 차트 추가
+- Redis 장애 시 try-catch fallback으로 서비스 중단 없음
+
 ---
 
 ## 4. 아키텍처
@@ -151,10 +170,12 @@ graph TB
         SVC["<b>Service Layer</b><br/>company_id 격리 검증 · 비즈니스 로직"]
         REPO["<b>Repository Layer</b><br/>Spring Data JPA + Native SQL"]
         WJS["<b>Widget JS Generator</b><br/>/widget/bizmap-widget.js<br/>키 + Maps API 인라인 주입"]
+        SCHED["<b>UsageFlushScheduler</b><br/>매일 자정 Redis → DB"]
     end
 
     subgraph Data["💾 데이터 영역"]
         DB[("<b>PostgreSQL 15 + PostGIS 3.4</b><br/>ST_DWithin · ST_Distance<br/>GiST 공간 인덱스")]
+        REDIS[("<b>Redis 7</b><br/>위젯/핀 캐싱 (TTL 5~10분)<br/>사용량 카운터 (INCR)<br/>자정 DB flush")]
     end
 
     subgraph GMP["🗺️ Google Maps Platform"]
@@ -173,14 +194,17 @@ graph TB
     EXT -->|"위젯 스크립트 요청"| WJS
     WJS -->|"동적 생성된 JS 응답"| EXT
     EXT -.->|"Maps JS 동적 로드"| MAPS
+    SVC -.->|"캐시 read/write<br/>INCR usage counter"| REDIS
+    SCHED -->|"flush"| REDIS
+    SCHED -->|"upsert"| DB
 
     classDef client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
     classDef server fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
     classDef data fill:#fff3e0,stroke:#f57c00,stroke-width:2px,color:#000
     classDef gmp fill:#e8f5e9,stroke:#388e3c,stroke-width:2px,color:#000
     class FE,EXT client
-    class SEC,CTRL,SVC,REPO,WJS server
-    class DB data
+    class SEC,CTRL,SVC,REPO,WJS,SCHED server
+    class DB,REDIS data
     class MAPS,PLACES,GEO gmp
 ```
 
@@ -252,6 +276,7 @@ Google Maps Platform 을 직접 연동
 | **Maps JavaScript API** | 매장 지도 시각화, 마커 + InfoWindow, 위젯 동적 로드 (`maps.googleapis.com/maps/api/js?...&libraries=marker&callback=...`), 마커 클릭 이벤트 |
 | **Places API (New)** | 주소 자동완성 (`AutocompleteSuggestion.fetchAutocompleteSuggestions`), Place 상세 (`new Place({id}).fetchFields(['formattedAddress','location'])`), **세션 토큰 비용 최적화**, 한국 주소 제한 (`region: 'kr'`) |
 | **Geocoding API** | 매장 등록 시 주소 ↔ 좌표 변환 (Autocomplete 도입 전 기본 흐름) |
+| **Address Validation API** | 매장 등록/수정 시 주소 유효성 검증, normalizedAddress 자동 적용, API 실패 시 fallback 처리 |
 
 ### 비용/UX 최적화 노하우
 
@@ -259,6 +284,8 @@ Google Maps Platform 을 직접 연동
 - **300ms 디바운싱**: 키 입력마다 API 호출 → 사용자가 입력을 멈춘 후에만 호출
 - **`region` / `language` 파라미터**: 불필요한 글로벌 결과 제외, 한국 주소만 노출
 - **위젯 Maps 스크립트 단일 로드**: 같은 페이지에 위젯이 여러 개 있어도 `__bizmapMapsLoading` 가드로 Google Maps JS 는 한 번만 로드
+- **Address Validation fallback**: API 호출 실패 시 isValid=true로 처리해 검증 오류가 서비스 중단으로 이어지지 않도록 설계
+- **Redis 캐시 무효화 전략**: 매장 CUD 발생 시 해당 company의 위젯/핀 캐시를 즉시 evict해 stale 데이터 노출 방지
 
 ---
 
@@ -296,6 +323,15 @@ ST_MakePoint(s.longitude, s.latitude)::geography
 CAST(ST_MakePoint(s.longitude, s.latitude) AS geography)
 ```
 ANSI 표준 `CAST(... AS ...)` 로 교체하면 `:` 를 포함하지 않아 우회 가능.
+
+### 6-4. Redis 캐싱과 당일 사용량 정합성 문제
+
+위젯 API 사용량을 매일 자정에 Redis → DB로 flush하는 구조에서,
+당일 데이터는 아직 DB에 없고 Redis에만 존재하는 문제 발생.
+대시보드 조회 시 DB 데이터만 반환하면 당일 호출량이 0으로 표시됨.
+
+해결: WidgetUsageService에서 DB 조회 결과와 Redis 당일 카운터를 날짜 기준으로 합산해서 반환.
+flush 전후 어느 시점에 조회해도 정확한 수치 보장.
 
 ---
 
